@@ -1,0 +1,75 @@
+{
+  "containerDefinitions": [
+    {
+      "environment": null,
+      "secrets": [
+        {
+          "name": "NORMAL_KEY",
+          "valueFrom": "/preprod/testing/NORMAL_KEY",
+          "type": "SecureString",
+          "value": "simple value"
+        },
+        {
+          "name": "MULTILINE_CERT",
+          "valueFrom": "/preprod/testing/MULTILINE_CERT",
+          "type": "SecureString",
+          "value": "-----BEGIN CERTIFICATE-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA2YOwj6pZ/Wk3lB/B7quP\nvFK4aV9jfykneUnZdLm2ZkSBubri3N2knH69wlSFexIkRVl33cUXKXnz8ftq6jUp\njpi6t2vddorKDPLMc15KBO8CAwEAAQ="
+        },
+        {
+          "name": "ANOTHER_LINE",
+          "valueFrom": "/preprod/testing/ANOTHER_LINE",
+          "type": "String",
+          "value": "not a key"
+        },
+        {
+          "name": "BASE64_VALUE",
+          "valueFrom": "/preprod/testing/BASE64_VALUE",
+          "type": "String",
+          "value": "SGVaaiiuueeooGQ="
+        },
+        {
+          "name": "FAKE_KEY_IN_VALUE",
+          "valueFrom": "/preprod/testing/FAKE_KEY_IN_VALUE",
+          "type": "SecureString",
+          "value": "This is multiline\nwith a line that has=sign\nand another line"
+        },
+        {
+          "name": "NEXT_REAL_KEY",
+          "valueFrom": "/preprod/testing/NEXT_REAL_KEY",
+          "type": "SecureString",
+          "value": "after multiline"
+        },
+        {
+          "name": "URL_VALUE",
+          "valueFrom": "/preprod/testing/URL_VALUE",
+          "type": "String",
+          "value": "https://example.com?param=value"
+        },
+        {
+          "name": "JWT_VALUE",
+          "valueFrom": "/preprod/testing/JWT_VALUE",
+          "type": "String",
+          "value": "eyJhb6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2Q_adQssw5c"
+        },
+        {
+          "name": "COMPLEX_MULTILINE",
+          "valueFrom": "/preprod/testing/COMPLEX_MULTILINE",
+          "type": "String",
+          "value": "First line\nCAwEAAQ= (base64 padding)\nAnother line with = in it\nAnd more text"
+        },
+        {
+          "name": "FINAL_KEY",
+          "valueFrom": "/preprod/testing/FINAL_KEY",
+          "type": "SecureString",
+          "value": "last one"
+        },
+        {
+          "name": "RSA",
+          "valueFrom": "/preprod/testing/RSA",
+          "type": "SecureString",
+          "value": "-----BEGIN PRIVATE KEY-----\nMIIJQQIBADANBgkqhkiG9w0BAQEFAASCCSswggknAgEAAoICAQDZg7CPqln9aTeU\nH8Huq4+8UrhpX2N/KSd5Sdl0ubZmRIG5uuLc3aScfr3CVIV7EiRFWXfdxRcpefPx\n-----END PRIVATE KEY-----"
+        }
+      ]
+    }
+  ]
+}

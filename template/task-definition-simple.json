@@ -1,0 +1,98 @@
+{
+  "family": "wec",
+  "cpu": "256",
+  "memory": "512",
+  "runtimePlatform": {
+    "cpuArchitecture": "ARM64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "EC2"
+  ],
+  "containerDefinitions": [
+    {
+      "essential": true,
+      "name": "wec",
+      "image": "${REPOSITORY_URL}:${IMAGE_TAG}",
+      "portMappings": [
+        {
+          "name": "wec-443-tcp",
+          "containerPort": 443,
+          "hostPort": 443,
+          "protocol": "tcp",
+          "appProtocol": "http"
+        }
+      ],
+      "environment": [
+        {
+          "name": "TZ",
+          "value": "Asia/Jakarta"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "exp1",
+          "valueFrom": "arn:aws:ssm:ap-southeast-3:1234:parameter/preprod/testing/exp1"
+        },
+        {
+          "name": "STRING",
+          "valueFrom": "arn:aws:ssm:ap-southeast-3:1234:parameter/preprod/testing/string",
+          "type": "String",
+          "value": "I'am string"
+        },
+        {
+          "name": "STRINGLIST",
+          "valueFrom": "arn:aws:ssm:ap-southeast-3:1234:parameter/preprod/testing/stringlist",
+          "type": "StringList",
+          "value": "I'am,string"
+        },
+        {
+          "name": "SECURESTRING",
+          "valueFrom": "arn:aws:ssm:ap-southeast-3:1234:parameter/preprod/testing/securestring",
+          "type": "securestring",
+          "value": "I'am string"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "fluentd",
+        "options": {
+          "fluentd-address": "unix:///var/run/fluent.sock",
+          "tag": "wec"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl  -k -f http://localhost:443/healt || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3
+      },
+      "mountPoints": [
+        {
+          "sourceVolume": "wec-file",
+          "containerPath": "/app/file",
+          "readOnly": false
+        }
+      ]
+    }
+  ],
+  "taskRoleArn": "arn:aws:iam::1234:role/wec-role",
+  "executionRoleArn": "arn:aws:iam::1234:role/wec-role",
+  "volumes": [
+    {
+      "name": "wec-file",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-23456",
+        "rootDirectory": "/",
+        "transitEncryption": "ENABLED",
+        "authorizationConfig": {
+          "accessPointId": "fsap-34567",
+          "iam": "DISABLED"
+        }
+      }
+    }
+  ]
+}
