@@ -13,7 +13,7 @@ A simple Golang CLI tool to get and put parameters in AWS Systems Manager Parame
 Clone the repository and use the Makefile for easy installation:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/jahrulnr/parameter-store-tools.git
 cd salter-aws
 make install
 ```
