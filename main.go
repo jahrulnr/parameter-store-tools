@@ -133,7 +133,7 @@ func main() {
 	switch *action {
 	case "get":
 		// Retrieve a single parameter.
-		val, err := features.GetParameter(client, *name)
+		val, _, err := features.GetParameter(client, *name)
 		if err != nil {
 			log.Fatalf("Failed to get parameter: %v", err)
 		}

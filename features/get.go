@@ -13,7 +13,7 @@ import (
 )
 
 // getParametersFromFile reads an ECS task definition JSON file and retrieves all SSM parameters referenced in the secrets.
-// It parses the JSON, extracts parameter ARNs, fetches values, and either prints them or saves to a dated JSON file.
+// It parses the JSON, extracts parameter ARNs, fetches values and types, and either prints them or saves to files.
 func GetParametersFromFile(client *ssm.Client, filename, outputPrefix string) error {
 	// Read the entire JSON file into memory.
 	data, err := os.ReadFile(filename)
@@ -21,64 +21,101 @@ func GetParametersFromFile(client *ssm.Client, filename, outputPrefix string) er
 		return err
 	}
 
-	// Unmarshal the JSON data into the TaskDefinition struct.
-	var taskDef TaskDefinition
-	err = json.Unmarshal(data, &taskDef)
+	// Unmarshal the JSON data into a map to preserve all fields.
+	var jsonMap map[string]interface{}
+	err = json.Unmarshal(data, &jsonMap)
 	if err != nil {
 		return err
 	}
 
-	// Ensure there is at least one container definition.
-	if len(taskDef.ContainerDefinitions) == 0 {
+	// Navigate to containerDefinitions[0].secrets
+	containerDefs, ok := jsonMap["containerDefinitions"].([]interface{})
+	if !ok || len(containerDefs) == 0 {
 		return fmt.Errorf("no container definitions found")
 	}
+	containerDef, ok := containerDefs[0].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid container definition")
+	}
+	secretsInterface, ok := containerDef["secrets"].([]interface{})
+	if !ok {
+		return fmt.Errorf("no secrets found")
+	}
 
-	// Iterate over the secrets in the first container (assuming single container for simplicity).
-	secrets := taskDef.ContainerDefinitions[0].Secrets
-	envMap := make(map[string]string) // For saving to JSON if outputPrefix is provided.
+	envMap := make(map[string]string) // For saving to .env if outputPrefix is provided.
 
-	for _, secret := range secrets {
+	// Iterate over the secrets.
+	for _, sec := range secretsInterface {
+		secret, ok := sec.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, ok := secret["name"].(string)
+		if !ok {
+			continue
+		}
+		valueFrom, ok := secret["valueFrom"].(string)
+		if !ok {
+			continue
+		}
 		// Extract the parameter name from the ARN.
-		paramName := ExtractParameterName(secret.ValueFrom)
+		paramName := ExtractParameterName(valueFrom)
 		if paramName == "" {
-			fmt.Printf("Invalid ARN for %s: %s\n", secret.Name, secret.ValueFrom)
+			fmt.Printf("Invalid ARN for %s: %s\n", name, valueFrom)
 			continue
 		}
-		// Fetch the parameter value from SSM.
-		val, err := GetParameter(client, paramName)
+		// Fetch the parameter value and type from SSM.
+		val, typ, err := GetParameter(client, paramName)
 		if err != nil {
-			fmt.Printf("Failed to get %s: %v\n", secret.Name, err)
+			fmt.Printf("Failed to get %s: %v\n", name, err)
 			continue
 		}
+		// Add value and type to the secret map.
+		secret["value"] = val
+		secret["type"] = string(typ)
+
 		if outputPrefix != "" {
-			// Collect for JSON output.
-			envMap[secret.Name] = val
+			// Collect for .env output.
+			envMap[name] = val
 		} else {
 			// Print the result in environment variable format.
-			fmt.Printf("%s=%s\n", secret.Name, val)
+			fmt.Printf("%s=%s\n", name, val)
 		}
 	}
 
-	// If outputPrefix is provided, save to .env file with date.
+	// If outputPrefix is provided, save to .env and .json files.
 	if outputPrefix != "" {
+		// Save .env file with date.
 		dateStr := time.Now().Format("020106") // ddmmyy format.
-		outputFile := fmt.Sprintf("%s-%s.env", outputPrefix, dateStr)
+		envFile := fmt.Sprintf("%s-%s.env", outputPrefix, dateStr)
 		var content strings.Builder
 		for key, value := range envMap {
 			content.WriteString(fmt.Sprintf("%s=%s\n", key, value))
 		}
-		err = os.WriteFile(outputFile, []byte(content.String()), 0644)
+		err = os.WriteFile(envFile, []byte(content.String()), 0644)
 		if err != nil {
-			return fmt.Errorf("failed to write file %s: %w", outputFile, err)
+			return fmt.Errorf("failed to write .env file %s: %w", envFile, err)
 		}
-		fmt.Printf("Saved bulk env to %s\n", outputFile)
+		fmt.Printf("Saved bulk env to %s\n", envFile)
+
+		// Save modified JSON file.
+		jsonFile := fmt.Sprintf("%s-%s.json", outputPrefix, dateStr)
+		jsonData, err := json.MarshalIndent(jsonMap, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		err = os.WriteFile(jsonFile, jsonData, 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write JSON file %s: %w", jsonFile, err)
+		}
+		fmt.Printf("Saved modified task definition to %s\n", jsonFile)
 	}
 
 	return nil
 }
 
 // getParameter retrieves a single parameter from AWS SSM, with decryption enabled for SecureStrings.
-func GetParameter(client *ssm.Client, name string) (string, error) {
+func GetParameter(client *ssm.Client, name string) (string, ParameterType, error) {
 	// Prepare the input for the GetParameter API call.
 	input := &ssm.GetParameterInput{
 		Name:           aws.String(name),
@@ -88,11 +125,24 @@ func GetParameter(client *ssm.Client, name string) (string, error) {
 	// Call the SSM API to get the parameter.
 	result, err := client.GetParameter(context.TODO(), input)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	// Return the decrypted parameter value.
-	return *result.Parameter.Value, nil
+	// Determine the parameter type.
+	var paramType ParameterType
+	switch result.Parameter.Type {
+	case "String":
+		paramType = StringType
+	case "StringList":
+		paramType = StringListType
+	case "SecureString":
+		paramType = SecureStringType
+	default:
+		paramType = StringType
+	}
+
+	// Return the decrypted parameter value and type.
+	return *result.Parameter.Value, paramType, nil
 }
 
 // getParametersByPrefix retrieves all parameters under a specified prefix from AWS SSM and saves them to a .env file and a task-definition JSON.
